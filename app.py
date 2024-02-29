@@ -29,33 +29,9 @@ manager = ConnectionManager()
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-html_content = """
-<!DOCTYPE html>
-<html>
-    <head>
-        <title>Chat with Mistral</title>
-    </head>
-    <body>
-        <input type="text" id="userInput" placeholder="Enter your question...">
-        <button onclick="getAnswer()">Get Answer</button>
-        <p id="responseContainer"></p>
-        <script>
-            var socket = new WebSocket("ws://localhost:8000/ws");
+with open("/home/ranem/ollamaFast/static/index.html", "r") as file:
+    html_content = file.read()
 
-            socket.onmessage = function(event) {
-                var responseContainer = document.getElementById('responseContainer');
-                responseContainer.innerHTML +=event.data;
-                console.log(event.data);
-            };
-
-            function getAnswer() {
-                var userInput = document.getElementById('userInput').value;
-                socket.send(JSON.stringify({role: 'user', content: userInput}));
-            }
-        </script>
-    </body>
-</html>
-"""
 
 @app.get("/", response_class=HTMLResponse)
 async def get():

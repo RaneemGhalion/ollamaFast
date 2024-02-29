@@ -1,32 +1,25 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLAMA2 Question Answering</title>
-</head>
-<body>
-    <h1>LLAMA2 Question Answering</h1>
+<html>
+    <head>
+        <title>Chat with Mistral</title>
+    </head>
+    <body>
+        <input type="text" id="userInput" placeholder="Enter your question...">
+        <button onclick="getAnswer()">Get Answer</button>
+        <p id="responseContainer"></p>
+        <script>
+            var socket = new WebSocket("ws://localhost:8000/ws");
 
-    <form action="/get_answer" method="post">
-        <label for="question">Enter your question:</label>
-        <input type="text" id="userInput" oninput="updateUserInput()">
-        <button type="submit">Get Answer</button>
-    </form>
+            socket.onmessage = function(event) {
+                var responseContainer = document.getElementById('responseContainer');
+                responseContainer.innerHTML +=event.data;
+                console.log(event.data);
+            };
 
-    <div id="response-container"></div>
-
-    <script>
-    var socket = new WebSocket("ws://localhost:8000/ws");
-                socket.onmessage = function(event) {
-                    var data = JSON.parse(event.data);
-                    // Update your HTML with the received data
-                    console.log("Received data:", data);
-                };
-        function updateUserInput() {
-            const userInput = document.getElementById("userInput").value;
-            socket.send(userInput);
-        }
-    </script>
-</body>
+            function getAnswer() {
+                var userInput = document.getElementById('userInput').value;
+                socket.send(JSON.stringify({role: 'user', content: userInput}));
+            }
+        </script>
+    </body>
 </html>
