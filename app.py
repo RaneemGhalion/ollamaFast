@@ -64,7 +64,7 @@ async def get():
 async def chat_generator(messages):
     for part in chat('mistral', messages=messages, stream=True):
         yield part['message']['content']
-        await asyncio.sleep(2)  # Optional: Add a delay between messages
+        await asyncio.sleep(0.3)  # Optional: Add a delay between messages
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
@@ -76,6 +76,7 @@ async def websocket_endpoint(websocket: WebSocket):
             my_dict = json.loads(data)
             
             async for response_content in chat_generator([my_dict]):
+                print(response_content)
                 await websocket.send_text(response_content)
     except asyncio.CancelledError:
         # Handle disconnection if needed
