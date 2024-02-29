@@ -1,39 +1,84 @@
-from fastapi import FastAPI, Form, HTTPException
-from fastapi.responses import FileResponse, HTMLResponse
+
+from ollama import chat
+
+
+from fastapi import FastAPI, WebSocket
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
-import concurrent.futures
-import asyncio  # Add this import
-import ollama
+import json
+import asyncio
 
 app = FastAPI()
 
-# Serve static files (e.g., CSS, JS, images)
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_message(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-def chat_with_ollama(question):
-    try:
-        return ollama.chat(model='llama2', messages=[{'role': 'user', 'content': question, },])
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error in Ollama API: {str(e)}")
+html_content = """
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chat with Mistral</title>
+    </head>
+    <body>
+        <input type="text" id="userInput" placeholder="Enter your question...">
+        <button onclick="getAnswer()">Get Answer</button>
+        <p id="responseContainer"></p>
+        <script>
+            var socket = new WebSocket("ws://localhost:8000/ws");
+
+            socket.onmessage = function(event) {
+                var responseContainer = document.getElementById('responseContainer');
+                responseContainer.innerHTML +=event.data;
+                console.log(event.data);
+            };
+
+            function getAnswer() {
+                var userInput = document.getElementById('userInput').value;
+                socket.send(JSON.stringify({role: 'user', content: userInput}));
+            }
+        </script>
+    </body>
+</html>
+"""
 
 @app.get("/", response_class=HTMLResponse)
-async def read_root():
-    return FileResponse("static/index.html")
+async def get():
+    return HTMLResponse(content=html_content)
 
-@app.post("/get_answer")
-async def get_answer(question: str = Form(...)):
+async def chat_generator(messages):
+    for part in chat('mistral', messages=messages, stream=True):
+        yield part['message']['content']
+        await asyncio.sleep(2)  # Optional: Add a delay between messages
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await websocket.accept()
+    
     try:
-        # Use ThreadPoolExecutor for parallel requests
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            # Make parallel requests to Ollama using submit
-            loop = asyncio.get_event_loop()
-            responses = await loop.run_in_executor(executor, lambda: [chat_with_ollama(question) for _ in range(1)])
-
-        # Process the responses as needed
-        result = {"responses": []}
-        for response in responses:
-            result["responses"].append(response['message']['content'] if 'message' in response and 'content' in response['message'] else "No response")
-
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal Server Error: {str(e)}")
+        while True:
+            data = await websocket.receive_text()
+            my_dict = json.loads(data)
+            
+            async for response_content in chat_generator([my_dict]):
+                await websocket.send_text(response_content)
+    except asyncio.CancelledError:
+        # Handle disconnection if needed
+        pass
+    finally:
+        manager.disconnect(websocket)
