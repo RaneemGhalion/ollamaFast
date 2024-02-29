@@ -11,7 +11,7 @@ Before running the application, make sure you have the following installed:
 - Python 3.x
 - FastAPI
 - Ollama
-- [Other dependencies]
+
 
 ## Installation
 
@@ -24,9 +24,13 @@ Before running the application, make sure you have the following installed:
 
 2. **Install dependencies:**
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+##### ollama on linux :
+curl -fsSL https://ollama.com/install.sh | sh
+##### ollamma on windows :
+https://ollama.com/download/windows
+##### install fastapi 
+pip install fastapi
+
 
 ## Usage
 
